@@ -1,0 +1,3 @@
+name : adjoint-embeddings
+include : src ADJ/src S4/src
+depend : standard-library-2.1
