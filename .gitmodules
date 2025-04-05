@@ -1,6 +1,3 @@
-[submodule "ADJ"]
-	path = ADJ
+[submodule "AdjointLogic"]
+	path = AdjointLogic
 	url = git@github.com:movinglinguini/Adjoint-Logic-in-Agda.git
-[submodule "S4"]
-	path = S4
-	url = git@github.com:movinglinguini/PD-S4-Agda.git
