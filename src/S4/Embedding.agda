@@ -1,4 +1,4 @@
-open import Data.String hiding (length)
+open import Data.String hiding (length; _++_)
 open import Data.Vec
 open import Data.Nat hiding (_≟_; _≥_)
 open import Data.Product
@@ -64,46 +64,79 @@ module S4.Embedding where
     PropAtom Mode mWeakenable mContractable mHarmless _∙_⇒_ _≥_ 
     renaming (_⊢_ to _⊢ᵃ_; Context to AdjointContext)
 
-
   private
     variable
       n m o : ℕ 
-      Aₛ : Proposition
+      Aₛ Bₛ : Proposition
       Aₐ : Prop 
       Δ : HypContext n Validity
       Γ : HypContext m Truth
-      Ψ : AdjointContext (n + m)
+      Ψ Ψ' Ψ₁ Ψ₂ : AdjointContext o
       t : Hypothesis
       k : Mode
-      Aₕ : Proposition × Hypothesis
-      Aₘ : Proposition × Mode
+      Aₕ Bₕ : Proposition × Hypothesis
+      Aₘ Aₘ' : Prop × Mode
 
   {-
     Okay, so from here, we want to think about comparing S4 to ADJ.
-    First, we need some translations. First, translating contexts.
+    First, we need some translations. First, translating propositions.
   -}
-  private
-    propToProp : Proposition → Prop
-    propToProp (` x) = ` x
-    propToProp (A ⊃ B) = (propToProp A) ⊸ (propToProp B)
-    propToProp (■ A) = ↑[ mValid ][ mTrue ] (propToProp A)
-    
-    hypToMode : Hypothesis → Mode
-    hypToMode true = mTrue
-    hypToMode valid = mValid
+  propToProp : Proposition → Prop
+  propToProp (` x) = ` x
+  propToProp (A ⊃ B) = (propToProp A) ⊸ (propToProp B)
+  propToProp (■ A) = ↓[ mTrue ][ mValid ](↑[ mValid ][ mTrue ] (propToProp A))
 
-  propS4toPropADJ : (Proposition × Hypothesis) → (Prop × Mode)
-  propS4toPropADJ (A , true) = (propToProp A) , mTrue
-  propS4toPropADJ (A , valid) = ↑[ mValid ][ mTrue ](propToProp A) , mTrue
+  -- Translating tagged propositions. Note that all propositions
+  -- translate to an adjoint propositon with the mode for truth.
+  translS4-TProp : (Proposition × Hypothesis) → (Prop × Mode)
+  translS4-TProp (A , true) = (propToProp A) , mTrue
+  translS4-TProp (A , valid) = ↑[ mValid ][ mTrue ](propToProp A) , mTrue
+
+  -- Translating entire contexts. It's annoying that we have to go by induction
+  -- on the validity type, but c'est la vie.
+  τ : ∀ t → HypContext n t → AdjointContext n
+  τ Validity ([] , all-valid) = []
+  τ Validity (A ∷ Δ , onlyv/s all-valid x) = translS4-TProp A ∷ τ Validity (Δ , all-valid)
+  τ Truth ([] , all-truth) = []
+  τ Truth (A ∷ Γ , onlyt/s all-truth x) = translS4-TProp A ∷ τ Truth (Γ , all-truth) 
   
-  Δ⇒Ψ : HypContext n Validity → AdjointContext n
-  Δ⇒Ψ ([] , snd) = []
-  Δ⇒Ψ (x ∷ fst , onlyv/s snd x₁) = (propS4toPropADJ x) ∷ (Δ⇒Ψ (fst , snd))
+  -- And now we define some relations that we'll need for our proofs.
 
-  ADJ-embeds-S4-1 : (Δ , ([] , onlyt/z)) ⊢ˢ Aₕ → (Δ⇒Ψ Δ) ⊢ᵃ (propS4toPropADJ Aₕ)
-  ADJ-embeds-S4-1 (⊃I D) = ⊸R {!   !}
-  ADJ-embeds-S4-1 (⊃E D D₁) = {!  !}
-  ADJ-embeds-S4-1 {Δ = Δ} (hyp* {B} x) = {!   !}
-  ADJ-embeds-S4-1 (■I D) = ↑R (ADJ-embeds-S4-1 D)
-  ADJ-embeds-S4-1 (■E D D₁) = ↑L {!   !} m≥m (ADJ-embeds-S4-1 D₁)
+  -- First, we define ↑-ifying a truth proposition. We simply
+  -- apply an upshift to it.
+  data ↑-prop : Prop × Mode → Prop × Mode → Set where
+    ↑/prop : ↑-prop (Aₐ , mTrue) (↑[ mValid ][ mTrue ] Aₐ , mTrue)
+
+  -- Second, we distribute ↑ across a context.
+  data ↑-ctxt : AdjointContext n → AdjointContext n → Set where
+    ↑/ctxt/z : ↑-ctxt [] []
+
+    ↑/ctxt/s : 
+      ↑-ctxt Ψ Ψ'    →   ↑-prop Aₘ Aₘ'
+      → ↑-ctxt (Aₘ ∷ Ψ) (Aₘ' ∷ Ψ)
+
+  embed-S4-1 : ∀ { Δ : HypContext (suc n) Validity } { Γ : HypContext (suc m) Truth }
+    → (Δ , Γ) ⊢ˢ (Aₛ , true)
+    → ↑-ctxt (τ Validity Δ) Ψ₁
+    → (Ψ₁ ++ (τ Truth Γ)) ⊢ᵃ (translS4-TProp (Aₛ , true)) 
+
+  embed-S4-2 : ∀ { Δ : HypContext (suc n) Validity }
+    → (Δ , ([] , onlyt/z)) ⊢ˢ (Aₛ , true)
+    → ↑-ctxt (τ Validity Δ) Ψ
+    → ↑-prop (translS4-TProp (Aₛ , true)) Aₘ
+    → Ψ ⊢ᵃ Aₘ
+
+  embed-S4-1 (hyp x) _ = {!   !}
+  embed-S4-1 (⊃I D) _ = ⊸R (embed-S4-1 {!   !} {!   !}) -- Needs exchange
+  embed-S4-1 (⊃E D D₁) _ = {!   !}
+  embed-S4-1 (hyp* x) _ = {!   !}
+  embed-S4-1 (■I D) _ = ↓R {!   !} {!   !} {!   !} (↑R ({!   !}))
+  embed-S4-1 (■E D D₁) _ = {!   !}
+  
+  embed-S4-2 {Δ = Aₛ ∷ fst , onlyv/s snd x} (⊃I D) (↑/ctxt/s ↑-c x₁) ↑/prop = ↑R (⊸R {!   !}) -- Needs substitution principle for S4
+  embed-S4-2 (⊃E D D₁) ↑-c ↑/prop = {!   !}
+  embed-S4-2 (hyp* x) ↑-c ↑/prop = ↑R (id {!   !} {!   !} {!   !})
+  embed-S4-2 (■I D) ↑-c ↑/prop = ↑R (↓R {!   !} {!   !} {!   !} (↑R {!   !}))
+  embed-S4-2 (■E D D₁) ↑-c ↑/prop = ↑R {!   !}
  
+    
