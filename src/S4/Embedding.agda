@@ -72,10 +72,10 @@ module S4.Embedding where
       Δ : HypContext n Validity
       Γ : HypContext m Truth
       Ψ Ψ' Ψ₁ Ψ₂ : AdjointContext o
-      t : Hypothesis
+      t : ContextType
       k : Mode
       Aₕ Bₕ : Proposition × Hypothesis
-      Aₘ Aₘ' : Prop × Mode
+      Aₘ Aₘ' Bₘ : Prop × Mode
 
   {-
     Okay, so from here, we want to think about comparing S4 to ADJ.
@@ -106,6 +106,7 @@ module S4.Embedding where
   -- apply an upshift to it.
   data ↑-prop : Prop × Mode → Prop × Mode → Set where
     ↑/prop : ↑-prop (Aₐ , mTrue) (↑[ mValid ][ mTrue ] Aₐ , mTrue)
+    ↑/prop-exc : ↑-prop (↑[ mValid ][ mTrue ] Aₐ , mTrue) (↑[ mValid ][ mTrue ] Aₐ , mTrue)
 
   -- Second, we distribute ↑ across a context.
   data ↑-ctxt : AdjointContext n → AdjointContext n → Set where
@@ -126,17 +127,73 @@ module S4.Embedding where
     → ↑-prop (translS4-TProp (Aₛ , true)) Aₘ
     → Ψ ⊢ᵃ Aₘ
 
-  embed-S4-1 (hyp x) _ = {!   !}
-  embed-S4-1 (⊃I D) _ = ⊸R (embed-S4-1 {!   !} {!   !}) -- Needs exchange
-  embed-S4-1 (⊃E D D₁) _ = {!   !}
-  embed-S4-1 (hyp* x) _ = {!   !}
-  embed-S4-1 (■I D) _ = ↓R {!   !} {!   !} {!   !} (↑R ({!   !}))
-  embed-S4-1 (■E D D₁) _ = {!   !}
-  
-  embed-S4-2 {Δ = Aₛ ∷ fst , onlyv/s snd x} (⊃I D) (↑/ctxt/s ↑-c x₁) ↑/prop = ↑R (⊸R {!   !}) -- Needs substitution principle for S4
-  embed-S4-2 (⊃E D D₁) ↑-c ↑/prop = {!   !}
-  embed-S4-2 (hyp* x) ↑-c ↑/prop = ↑R (id {!   !} {!   !} {!   !})
-  embed-S4-2 (■I D) ↑-c ↑/prop = ↑R (↓R {!   !} {!   !} {!   !} (↑R {!   !}))
-  embed-S4-2 (■E D D₁) ↑-c ↑/prop = ↑R {!   !}
- 
+  -- Just going to postulate a bunch of commonly accepted lemmas
+  postulate
+    {- When can bring elements of the context from the tail to the head. -}
+    exch-Ψ-1 : (Ψ₁ ++ (Aₘ ∷ Ψ₂)) ⊢ᵃ Bₘ → (Aₘ ∷ Ψ₁ ++ Ψ₂) ⊢ᵃ Bₘ
+    exch-Ψ-2 : (Aₘ ∷ Ψ₁ ++ Ψ₂) ⊢ᵃ Bₘ → (Ψ₁ ++ (Aₘ ∷ Ψ₂)) ⊢ᵃ Bₘ
+
+    -- Every translation from an S4 context to an adjoint context is weakenable
+    weaken-transl-Ψ : ∀ { Δ : HypContext n t } 
+      → Ψ ≡ (τ t Δ)
+      → cWeakenable Ψ
     
+    -- Similar to the above, but when we upshift the translated context
+    weaken-transl-up-Ψ :
+      ↑-ctxt (τ Validity Δ) Ψ
+      → cWeakenable Ψ
+
+    -- The following two lemmas are similar to the above, but 
+    -- concerning contraction rather than weakening.
+    contr-transl-Ψ : ∀ { Δ : HypContext n t }
+      → Ψ ≡ (τ t Δ)
+      → cContractable Ψ
+
+    contr-transl-up-Ψ :
+      ↑-ctxt (τ Validity Δ) Ψ
+      → cContractable Ψ
+
+    -- If I concat two weakenable contexts, the result is weakenable
+    weaken-concat : 
+      cWeakenable Ψ₁    →   cWeakenable Ψ₂
+      → cWeakenable (Ψ₁ ++ Ψ₂)
+
+    -- Same idea as above with contractability.
+    contr-concat :
+      cContractable Ψ₁    →   cContractable Ψ₂
+      → cContractable (Ψ₁ ++ Ψ₂)
+
+    -- Any adjoint context is greater than mTrue, since mTrue is bottom.
+    mTrue-bot : Ψ ≥ᶜ mTrue
+
+    update-id : ∀ { Ψ : AdjointContext (suc n) } → update (Aₘ ∷ Ψ) Aₘ Aₘ (Aₘ ∷ Ψ)
+
+  embed-S4-1 {Ψ₁ = Ψ₁} {Γ = Γ} (hyp) up-ctxt 
+    = exch-Ψ-2 
+        (id { k = mTrue } 
+            update-id (weak/s (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ refl)) weak/true) 
+          harml/true)
+  embed-S4-1 (⊃I D) up-ctxt = ⊸R (exch-Ψ-1 (embed-S4-1 D up-ctxt))
+  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (⊃E D D₁) _ = ⊸L {!   !} {!   !} {!   !} {!   !} {!   !} {!   !} {!   !} {!   !} {!   !} {!   !} 
+  embed-S4-1 {Δ = (Aₛ , valid) ∷ fst , onlyv/s snd x₂} (hyp*) (↑/ctxt/s up-ctxt x₃) = {!   !} -- ↓L (consume/no (∈⇒update-id {! up !} {!   !} {!   !}) {!   !}) (↑L {!   !} {!   !} (id {!   !} {!   !} {!   !}))
+  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (■I D) up-ctxt = ↓R M mTrue-bot (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ refl)) (↑R {!  !})
+    where
+      tΓ = τ Truth Γ
+      postulate 
+        -- This should be fairly obvious. I can merge mTrue with mTrue according to
+        -- the definition of _∙_⇒_ above, and all of my context is mTrue.
+        M : merge (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ)
+  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (■E D D₁) up-ctxt 
+    = cut M M M mTrue-bot mTrue-bot m≥m (contr-concat (contr-transl-up-Ψ up-ctxt) (contr-transl-Ψ refl)) 
+        (embed-S4-1 D up-ctxt) 
+        (↓L consume/yes (embed-S4-1 D₁ (↑/ctxt/s up-ctxt ↑/prop-exc)))
+    where
+      tΓ = τ Truth Γ
+      postulate 
+        -- This should be fairly obvious. I can merge mTrue with mTrue according to
+        -- the definition of _∙_⇒_ above, and all of my context is mTrue.
+        M : merge (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ)
+  
+  embed-S4-2 D up-ctxt up-prop = {!   !}
+ 
+       
