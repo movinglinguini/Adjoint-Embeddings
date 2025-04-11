@@ -32,20 +32,24 @@ module S4.Embedding where
   data Mode : Set where
     mValid : Mode
     mTrue : Mode
+    mIrrelevant : Mode
   
   -- Now the preordering on modes
   data _≥_ : Mode → Mode → Set where
     v≥t : mValid ≥ mTrue
+    i≥t : mIrrelevant ≥ mTrue
     m≥m : ∀ { m } → m ≥ m
 
   -- Now the structural rules for our modes
   data mContractable : Mode → Set where
     contr/valid : mContractable mValid
     contr/true : mContractable mTrue
+    contr/irr : mContractable mIrrelevant
 
   data mWeakenable : Mode → Set where
     weak/valid : mWeakenable mValid
     weak/true : mWeakenable mTrue
+    weak/irr : mWeakenable mIrrelevant
 
   -- We need a notion of "harmlessness" for our modes.
   -- This comes up whenever we need to "consume" our modes, such as
@@ -53,11 +57,14 @@ module S4.Embedding where
   data mHarmless : Mode → Set where
     harml/valid : mHarmless mValid
     harml/true : mHarmless mTrue
+    harml/irr : mHarmless mIrrelevant
 
   -- Finally, the binary operation on modes
   data _∙_⇒_ : Mode → Mode → Mode → Set where
     v∙v : mValid ∙ mValid ⇒ mValid
     t∙t : mTrue ∙ mTrue ⇒ mTrue
+    i∙t : mIrrelevant ∙ mTrue ⇒ mIrrelevant
+    t∙i : mTrue ∙ mIrrelevant ⇒ mIrrelevant
 
   -- Now, we can initialize Adjoint Logic
   open import Adjoint.Logic 
@@ -68,7 +75,7 @@ module S4.Embedding where
     variable
       n m o : ℕ 
       Aₛ Bₛ : Proposition
-      Aₐ : Prop 
+      Aₐ Bₐ : Prop 
       Δ : HypContext n Validity
       Γ : HypContext m Truth
       Ψ Ψ' Ψ₁ Ψ₂ : AdjointContext o
@@ -89,8 +96,7 @@ module S4.Embedding where
   -- Translating tagged propositions. Note that all propositions
   -- translate to an adjoint propositon with the mode for truth.
   translS4-TProp : (Proposition × Hypothesis) → (Prop × Mode)
-  translS4-TProp (A , true) = (propToProp A) , mTrue
-  translS4-TProp (A , valid) = ↑[ mValid ][ mTrue ](propToProp A) , mTrue
+  translS4-TProp (A , _) = (propToProp A) , mTrue
 
   -- Translating entire contexts. It's annoying that we have to go by induction
   -- on the validity type, but c'est la vie.
@@ -105,8 +111,7 @@ module S4.Embedding where
   -- First, we define ↑-ifying a truth proposition. We simply
   -- apply an upshift to it.
   data ↑-prop : Prop × Mode → Prop × Mode → Set where
-    ↑/prop : ↑-prop (Aₐ , mTrue) (↑[ mValid ][ mTrue ] Aₐ , mTrue)
-    ↑/prop-exc : ↑-prop (↑[ mValid ][ mTrue ] Aₐ , mTrue) (↑[ mValid ][ mTrue ] Aₐ , mTrue)
+    ↑/prop/z : ↑-prop (Aₐ , mTrue) (↑[ mValid ][ mTrue ] Aₐ , mValid)
 
   -- Second, we distribute ↑ across a context.
   data ↑-ctxt : AdjointContext n → AdjointContext n → Set where
@@ -114,7 +119,7 @@ module S4.Embedding where
 
     ↑/ctxt/s : 
       ↑-ctxt Ψ Ψ'    →   ↑-prop Aₘ Aₘ'
-      → ↑-ctxt (Aₘ ∷ Ψ) (Aₘ' ∷ Ψ)
+      → ↑-ctxt (Aₘ ∷ Ψ) (Aₘ' ∷ Ψ')
 
   embed-S4-1 : ∀ { Δ : HypContext (suc n) Validity } { Γ : HypContext (suc m) Truth }
     → (Δ , Γ) ⊢ˢ (Aₛ , true)
@@ -166,7 +171,13 @@ module S4.Embedding where
     -- Any adjoint context is greater than mTrue, since mTrue is bottom.
     mTrue-bot : Ψ ≥ᶜ mTrue
 
+    -- I can do no-op updates to contexts.
     update-id : ∀ { Ψ : AdjointContext (suc n) } → update (Aₘ ∷ Ψ) Aₘ Aₘ (Aₘ ∷ Ψ)
+
+    weaken-++R : (Ψ₁) ⊢ᵃ Aₘ → (Ψ₁ ++ Ψ₂) ⊢ᵃ Aₘ
+  
+  -- Generalized implication lemma for S4-embedded Adjoint logic
+  gen-⊸ : Ψ ⊢ᵃ (Aₐ , mTrue) → Ψ ⊢ᵃ (Aₐ ⊸ Bₐ , mTrue) → Ψ ⊢ᵃ (Bₐ , mTrue)
 
   embed-S4-1 {Ψ₁ = Ψ₁} {Γ = Γ} (hyp) up-ctxt 
     = exch-Ψ-2 
@@ -174,9 +185,10 @@ module S4.Embedding where
             update-id (weak/s (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ refl)) weak/true) 
           harml/true)
   embed-S4-1 (⊃I D) up-ctxt = ⊸R (exch-Ψ-1 (embed-S4-1 D up-ctxt))
-  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (⊃E D D₁) _ = ⊸L {!   !} {!   !} {!   !} {!   !} {!   !} {!   !} {!   !} {!   !} {!   !} {!   !} 
-  embed-S4-1 {Δ = (Aₛ , valid) ∷ fst , onlyv/s snd x₂} (hyp*) (↑/ctxt/s up-ctxt x₃) = {!   !} -- ↓L (consume/no (∈⇒update-id {! up !} {!   !} {!   !}) {!   !}) (↑L {!   !} {!   !} (id {!   !} {!   !} {!   !}))
-  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (■I D) up-ctxt = ↓R M mTrue-bot (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ refl)) (↑R {!  !})
+  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (⊃E D D₁) up-ctxt = gen-⊸ (embed-S4-1 D₁ up-ctxt) (embed-S4-1 D up-ctxt)
+  embed-S4-1 { Γ = Γ } hyp* (↑/ctxt/s {Ψ' = Ψ'} up-ctxt ↑/prop/z) 
+    = ↑L consume/yes v≥t (id { k = mTrue } update/z (weak/s (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ { t = Truth } { Δ = Γ } refl)) weak/true) harml/true)
+  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (■I D) up-ctxt = ↓R {!   !} {!   !} {!   !} (↑R {!   !})
     where
       tΓ = τ Truth Γ
       postulate 
@@ -185,8 +197,8 @@ module S4.Embedding where
         M : merge (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ)
   embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (■E D D₁) up-ctxt 
     = cut M M M mTrue-bot mTrue-bot m≥m (contr-concat (contr-transl-up-Ψ up-ctxt) (contr-transl-Ψ refl)) 
-        (embed-S4-1 D up-ctxt) 
-        (↓L consume/yes (embed-S4-1 D₁ (↑/ctxt/s up-ctxt ↑/prop-exc)))
+      (embed-S4-1 D up-ctxt) 
+      (↓L consume/yes {!   !})
     where
       tΓ = τ Truth Γ
       postulate 
@@ -196,4 +208,4 @@ module S4.Embedding where
   
   embed-S4-2 D up-ctxt up-prop = {!   !}
  
-       
+                   
