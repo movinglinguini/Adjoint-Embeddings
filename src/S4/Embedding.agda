@@ -1,9 +1,9 @@
-open import Data.String hiding (length; _++_)
+open import Data.String hiding (length; _++_; map)
 open import Data.Vec
 open import Data.Nat hiding (_≟_; _≥_)
-open import Data.Product
+open import Data.Product hiding (map)
 open import Relation.Binary.PropositionalEquality
-open import Data.Vec.Relation.Unary.Any
+open import Data.Vec.Relation.Unary.Any hiding (map)
 
 module S4.Embedding where
   {- Some set up... -}
@@ -38,6 +38,7 @@ module S4.Embedding where
   data _≥_ : Mode → Mode → Set where
     v≥t : mValid ≥ mTrue
     i≥t : mIrrelevant ≥ mTrue
+    i≥v : mIrrelevant ≥ mValid
     m≥m : ∀ { m } → m ≥ m
 
   -- Now the structural rules for our modes
@@ -63,8 +64,9 @@ module S4.Embedding where
   data _∙_⇒_ : Mode → Mode → Mode → Set where
     v∙v : mValid ∙ mValid ⇒ mValid
     t∙t : mTrue ∙ mTrue ⇒ mTrue
-    i∙t : mIrrelevant ∙ mTrue ⇒ mIrrelevant
-    t∙i : mTrue ∙ mIrrelevant ⇒ mIrrelevant
+    i∙t : mIrrelevant ∙ mTrue ⇒ mTrue
+    t∙i : mTrue ∙ mIrrelevant ⇒ mTrue
+    i∙i : mIrrelevant ∙ mIrrelevant ⇒ mIrrelevant
 
   -- Now, we can initialize Adjoint Logic
   open import Adjoint.Logic 
@@ -84,6 +86,51 @@ module S4.Embedding where
       Aₕ Bₕ : Proposition × Hypothesis
       Aₘ Aₘ' Bₘ : Prop × Mode
 
+  {- Some helper relations -}
+  data Only-mTrue : AdjointContext n → Set where
+    onlyt/z : Only-mTrue []
+
+    onlyt/s : 
+      Only-mTrue Ψ
+      → Only-mTrue ((Aₐ , mTrue) ∷ Ψ)
+
+  data Only-mValid : AdjointContext n → Set where
+    onlyv/z : Only-mValid []
+
+    onlyv/s :
+      Only-mValid Ψ
+      → Only-mValid ((Aₐ , mValid) ∷ Ψ)
+
+  data Only-mIrrelevant : AdjointContext n → Set where
+    onlyi/z : Only-mIrrelevant []
+
+    onlyi/s :
+      Only-mIrrelevant Ψ
+      → Only-mIrrelevant ((Aₐ , mIrrelevant) ∷ Ψ)
+
+  -- We define ↑-ifying a truth proposition. We simply
+  -- apply an upshift to it.
+  data ↑-prop : Prop × Mode → Prop × Mode → Set where
+    ↑/prop/z : ↑-prop (Aₐ , mTrue) (↑[ mValid ][ mTrue ] Aₐ , mValid)
+
+  -- Second, we distribute ↑ across a context.
+  data ↑-ctxt : AdjointContext n → AdjointContext n → Set where
+    ↑/ctxt/z : ↑-ctxt [] []
+
+    ↑/ctxt/s : 
+      ↑-ctxt Ψ Ψ'    →   ↑-prop Aₘ Aₘ'
+      → ↑-ctxt (Aₘ ∷ Ψ) (Aₘ' ∷ Ψ')
+
+  {- Some helper functions -}
+  -- Replace all modes in a context with mIrrelevant
+  irrelify : AdjointContext n → AdjointContext n
+  irrelify Ψ = map (λ x → (proj₁ x) , mIrrelevant) Ψ
+
+  -- A context that has been irrelified is only full of irrelevant modes
+  irrel-irrel : Only-mIrrelevant (irrelify Ψ)
+  irrel-irrel {Ψ = []} = onlyi/z
+  irrel-irrel {Ψ = x ∷ Ψ} = onlyi/s irrel-irrel
+  
   {-
     Okay, so from here, we want to think about comparing S4 to ADJ.
     First, we need some translations. First, translating propositions.
@@ -105,33 +152,19 @@ module S4.Embedding where
   τ Validity (A ∷ Δ , onlyv/s all-valid x) = translS4-TProp A ∷ τ Validity (Δ , all-valid)
   τ Truth ([] , all-truth) = []
   τ Truth (A ∷ Γ , onlyt/s all-truth x) = translS4-TProp A ∷ τ Truth (Γ , all-truth) 
+
+  {- Properties of the translation -}
+  -- The translation of the truth context is all of mode true
+  trans-true : Only-mTrue (τ Truth Γ)
+  trans-true {Γ = [] , snd} = onlyt/z
+  trans-true {Γ = x ∷ fst , onlyt/s snd x₁} = onlyt/s trans-true
+
+  -- The up-shifted translation of the validity context is all of mode valid
+  trans-valid : ↑-ctxt (τ Validity Δ) Ψ → Only-mValid Ψ 
+  trans-valid {Δ = [] , snd} ↑/ctxt/z = onlyv/z
+  trans-valid {Δ = x ∷ fst , onlyv/s snd x₁} (↑/ctxt/s up-ctxt ↑/prop/z) = onlyv/s (trans-valid up-ctxt)
+
   
-  -- And now we define some relations that we'll need for our proofs.
-
-  -- First, we define ↑-ifying a truth proposition. We simply
-  -- apply an upshift to it.
-  data ↑-prop : Prop × Mode → Prop × Mode → Set where
-    ↑/prop/z : ↑-prop (Aₐ , mTrue) (↑[ mValid ][ mTrue ] Aₐ , mValid)
-
-  -- Second, we distribute ↑ across a context.
-  data ↑-ctxt : AdjointContext n → AdjointContext n → Set where
-    ↑/ctxt/z : ↑-ctxt [] []
-
-    ↑/ctxt/s : 
-      ↑-ctxt Ψ Ψ'    →   ↑-prop Aₘ Aₘ'
-      → ↑-ctxt (Aₘ ∷ Ψ) (Aₘ' ∷ Ψ')
-
-  embed-S4-1 : ∀ { Δ : HypContext (suc n) Validity } { Γ : HypContext (suc m) Truth }
-    → (Δ , Γ) ⊢ˢ (Aₛ , true)
-    → ↑-ctxt (τ Validity Δ) Ψ₁
-    → (Ψ₁ ++ (τ Truth Γ)) ⊢ᵃ (translS4-TProp (Aₛ , true)) 
-
-  embed-S4-2 : ∀ { Δ : HypContext (suc n) Validity }
-    → (Δ , ([] , onlyt/z)) ⊢ˢ (Aₛ , true)
-    → ↑-ctxt (τ Validity Δ) Ψ
-    → ↑-prop (translS4-TProp (Aₛ , true)) Aₘ
-    → Ψ ⊢ᵃ Aₘ
-
   -- Just going to postulate a bunch of commonly accepted lemmas
   postulate
     {- When can bring elements of the context from the tail to the head. -}
@@ -174,10 +207,49 @@ module S4.Embedding where
     -- I can do no-op updates to contexts.
     update-id : ∀ { Ψ : AdjointContext (suc n) } → update (Aₘ ∷ Ψ) Aₘ Aₘ (Aₘ ∷ Ψ)
 
-    weaken-++R : (Ψ₁) ⊢ᵃ Aₘ → (Ψ₁ ++ Ψ₂) ⊢ᵃ Aₘ
-  
-  -- Generalized implication lemma for S4-embedded Adjoint logic
+    weaken-++R : (Ψ₁ ++ []) ⊢ᵃ Aₘ → (Ψ₁ ++ Ψ₂) ⊢ᵃ Aₘ
+
+  {- Now, some lemmas -}
+
+  -- The merge operation on modes is reflexive.
+  ∙-id : k ∙ k ⇒ k
+  ∙-id {mValid} = v∙v
+  ∙-id {mTrue} = t∙t
+  ∙-id {mIrrelevant} = i∙i
+
+  -- The merge operation on contexts is reflexive.
+  merge-id : merge Ψ Ψ Ψ
+  merge-id {Ψ = []} = merge/z
+  merge-id {Ψ = x ∷ Ψ} = merge/s merge-id ∙-id
+
+  -- A fully truth context can merge with a fully irrelevant context
+  merge-irrel : Only-mTrue Ψ → merge (irrelify Ψ) Ψ Ψ
+  merge-irrel onlyt/z = merge/z
+  merge-irrel (onlyt/s ot) = merge/s (merge-irrel ot) i∙t
+
+  {- A context consisting of only valid things is weakenable -}
+  valid-weakenable : Only-mValid Ψ → cWeakenable Ψ
+  valid-weakenable onlyv/z = weak/z
+  valid-weakenable (onlyv/s ov) = weak/s (valid-weakenable ov) weak/valid
+
+  {- Similar lemma to above, but for irrelevant contexts -}
+  irrel-weakenable : Only-mIrrelevant Ψ → cWeakenable Ψ
+  irrel-weakenable onlyi/z = weak/z
+  irrel-weakenable (onlyi/s oi) = weak/s (irrel-weakenable oi) weak/irr
+
+  {- Similar to lemma above, but for truth contexts -}
+  true-weakenable : Only-mTrue Ψ → cWeakenable Ψ
+  true-weakenable onlyt/z = weak/z
+  true-weakenable (onlyt/s ot) = weak/s (true-weakenable ot) weak/true
+
+  -- Implication lemma for S4-embedded Adjoint logic
   gen-⊸ : Ψ ⊢ᵃ (Aₐ , mTrue) → Ψ ⊢ᵃ (Aₐ ⊸ Bₐ , mTrue) → Ψ ⊢ᵃ (Bₐ , mTrue)
+  gen-⊸ D1 D2 = {!   !}
+
+  embed-S4-1 : ∀ { Δ : HypContext (suc n) Validity } { Γ : HypContext m Truth }
+    → (Δ , Γ) ⊢ˢ (Aₛ , true)
+    → ↑-ctxt (τ Validity Δ) Ψ₁
+    → (Ψ₁ ++ (τ Truth Γ)) ⊢ᵃ (translS4-TProp (Aₛ , true)) 
 
   embed-S4-1 {Ψ₁ = Ψ₁} {Γ = Γ} (hyp) up-ctxt 
     = exch-Ψ-2 
@@ -187,18 +259,45 @@ module S4.Embedding where
   embed-S4-1 (⊃I D) up-ctxt = ⊸R (exch-Ψ-1 (embed-S4-1 D up-ctxt))
   embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (⊃E D D₁) up-ctxt = gen-⊸ (embed-S4-1 D₁ up-ctxt) (embed-S4-1 D up-ctxt)
   embed-S4-1 { Γ = Γ } hyp* (↑/ctxt/s {Ψ' = Ψ'} up-ctxt ↑/prop/z) 
-    = ↑L consume/yes v≥t (id { k = mTrue } update/z (weak/s (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ { t = Truth } { Δ = Γ } refl)) weak/true) harml/true)
-  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (■I D) up-ctxt = ↓R {!   !} {!   !} {!   !} (↑R {!   !})
+    = ↑L consume/yes v≥t 
+      (id { k = mTrue } update/z (weak/s (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ { t = Truth } { Δ = Γ } refl)) weak/true) harml/true)
+  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (■I D) up-ctxt 
+    = ↓R M (mValid-bot (Ψ₁-valid) irrel-irrel) (weaken-concat (valid-weakenable Ψ₁-valid) (true-weakenable trans-true)) 
+      (↑R (weaken-++R (embed-S4-1 D up-ctxt))) 
     where
       tΓ = τ Truth Γ
-      postulate 
-        -- This should be fairly obvious. I can merge mTrue with mTrue according to
-        -- the definition of _∙_⇒_ above, and all of my context is mTrue.
-        M : merge (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ)
+      IΓ = map (λ x → proj₁ x , mIrrelevant) tΓ
+
+      M1 : merge Ψ₁ Ψ₁ Ψ₁
+      M1 = merge-id
+
+      M2 : merge IΓ tΓ tΓ
+      M2  = merge-irrel trans-true
+
+      M : merge (Ψ₁ ++ IΓ) (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ)
+      M = merge-concat M1 M2
+
+      ≥ᶜ-lem-1 : Only-mValid Ψ → Ψ ≥ᶜ mValid
+      ≥ᶜ-lem-1 onlyv/z = ≥/z
+      ≥ᶜ-lem-1 (onlyv/s ov) = ≥/s (≥ᶜ-lem-1 ov) m≥m
+
+      ≥ᶜ-lem-2 : Only-mIrrelevant Ψ → Ψ ≥ᶜ mValid
+      ≥ᶜ-lem-2 onlyi/z = ≥/z
+      ≥ᶜ-lem-2 (onlyi/s oi) = ≥/s (≥ᶜ-lem-2 oi) i≥v
+
+      mValid-bot : ∀ { Ψ₁ : AdjointContext (suc n) } { Ψ₂ : AdjointContext m } → Only-mValid Ψ₁ → Only-mIrrelevant Ψ₂ → (Ψ₁ ++ Ψ₂) ≥ᶜ mValid
+      mValid-bot ov oi = ≥ᶜ-concat (≥ᶜ-lem-1 ov) (≥ᶜ-lem-2 oi)
+
+      Ψ₁-valid : Only-mValid Ψ₁
+      Ψ₁-valid = trans-valid up-ctxt
+
+      IΓ-irrel : Only-mIrrelevant IΓ
+      IΓ-irrel = irrel-irrel
+      
   embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (■E D D₁) up-ctxt 
     = cut M M M mTrue-bot mTrue-bot m≥m (contr-concat (contr-transl-up-Ψ up-ctxt) (contr-transl-Ψ refl)) 
       (embed-S4-1 D up-ctxt) 
-      (↓L consume/yes {!   !})
+      (↓L consume/yes (embed-S4-1 D₁ (↑/ctxt/s up-ctxt ↑/prop/z)))
     where
       tΓ = τ Truth Γ
       postulate 
@@ -206,6 +305,11 @@ module S4.Embedding where
         -- the definition of _∙_⇒_ above, and all of my context is mTrue.
         M : merge (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ)
   
+  embed-S4-2 : ∀ { Δ : HypContext (suc n) Validity }
+    → (Δ , ([] , onlyt/z)) ⊢ˢ (Aₛ , true)
+    → ↑-ctxt (τ Validity Δ) Ψ
+    → ↑-prop (translS4-TProp (Aₛ , true)) Aₘ
+    → Ψ ⊢ᵃ Aₘ
   embed-S4-2 D up-ctxt up-prop = {!   !}
  
-                   
+                           
