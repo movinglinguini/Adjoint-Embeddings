@@ -16,7 +16,7 @@ module S4.Embedding where
     a way to compare PropAtoms. 
   -}
   open import S4.Logic PropAtom _≟_
-    renaming (_⊢_ to _⊢ˢ_)
+    renaming (_⊢_ to _⊢ˢ_) public
   
   {-
     Initializing Adjoint Logic is a little more involved. To do this
@@ -71,20 +71,19 @@ module S4.Embedding where
   -- Now, we can initialize Adjoint Logic
   open import Adjoint.Logic 
     PropAtom Mode mWeakenable mContractable mHarmless _∙_⇒_ _≥_ 
-    renaming (_⊢_ to _⊢ᵃ_; Context to AdjointContext)
+    renaming (_⊢_ to _⊢ᵃ_; Context to AdjointContext) public
 
-  private
-    variable
-      n m o : ℕ 
-      Aₛ Bₛ : Proposition
-      Aₐ Bₐ : Prop 
-      Δ : HypContext n Validity
-      Γ : HypContext m Truth
-      Ψ Ψ' Ψ₁ Ψ₂ : AdjointContext o
-      t : ContextType
-      k : Mode
-      Aₕ Bₕ : Proposition × Hypothesis
-      Aₘ Aₘ' Bₘ : Prop × Mode
+  variable
+    n m o : ℕ 
+    Aₛ Bₛ : Proposition
+    Aₐ Bₐ : Prop 
+    Δ : HypContext n Validity
+    Γ : HypContext m Truth
+    Ψ Ψ' Ψ₁ Ψ₂ : AdjointContext o
+    t : ContextType
+    k : Mode
+    Aₕ Bₕ : Proposition × Hypothesis
+    Aₘ Aₘ' Bₘ : Prop × Mode
 
   {- Some helper relations -}
   data Only-mTrue : AdjointContext n → Set where
@@ -139,6 +138,8 @@ module S4.Embedding where
   propToProp (` x) = ` x
   propToProp (A ⊃ B) = (propToProp A) ⊸ (propToProp B)
   propToProp (■ A) = ↓[ mTrue ][ mValid ](↑[ mValid ][ mTrue ] (propToProp A))
+  propToProp (A ∧ B) = (propToProp A) ⊗ (propToProp B)
+  propToProp (A ∨ B) = (propToProp A) ⊕ (propToProp B)
 
   -- Translating tagged propositions. Note that all propositions
   -- translate to an adjoint propositon with the mode for truth.
@@ -164,166 +165,7 @@ module S4.Embedding where
   trans-valid {Δ = [] , snd} ↑/ctxt/z = onlyv/z
   trans-valid {Δ = x ∷ fst , onlyv/s snd x₁} (↑/ctxt/s up-ctxt ↑/prop/z) = onlyv/s (trans-valid up-ctxt)
 
+
   
-  -- Just going to postulate a bunch of commonly accepted lemmas
-  postulate
-    {- When can bring elements of the context from the tail to the head. -}
-    exch-Ψ-1 : (Ψ₁ ++ (Aₘ ∷ Ψ₂)) ⊢ᵃ Bₘ → (Aₘ ∷ Ψ₁ ++ Ψ₂) ⊢ᵃ Bₘ
-    exch-Ψ-2 : (Aₘ ∷ Ψ₁ ++ Ψ₂) ⊢ᵃ Bₘ → (Ψ₁ ++ (Aₘ ∷ Ψ₂)) ⊢ᵃ Bₘ
-
-    -- Every translation from an S4 context to an adjoint context is weakenable
-    weaken-transl-Ψ : ∀ { Δ : HypContext n t } 
-      → Ψ ≡ (τ t Δ)
-      → cWeakenable Ψ
-    
-    -- Similar to the above, but when we upshift the translated context
-    weaken-transl-up-Ψ :
-      ↑-ctxt (τ Validity Δ) Ψ
-      → cWeakenable Ψ
-
-    -- The following two lemmas are similar to the above, but 
-    -- concerning contraction rather than weakening.
-    contr-transl-Ψ : ∀ { Δ : HypContext n t }
-      → Ψ ≡ (τ t Δ)
-      → cContractable Ψ
-
-    contr-transl-up-Ψ :
-      ↑-ctxt (τ Validity Δ) Ψ
-      → cContractable Ψ
-
-    -- If I concat two weakenable contexts, the result is weakenable
-    weaken-concat : 
-      cWeakenable Ψ₁    →   cWeakenable Ψ₂
-      → cWeakenable (Ψ₁ ++ Ψ₂)
-
-    -- Same idea as above with contractability.
-    contr-concat :
-      cContractable Ψ₁    →   cContractable Ψ₂
-      → cContractable (Ψ₁ ++ Ψ₂)
-
-    -- Any adjoint context is greater than mTrue, since mTrue is bottom.
-    mTrue-bot : Ψ ≥ᶜ mTrue
-
-    -- I can do no-op updates to contexts.
-    update-id : ∀ { Ψ : AdjointContext n } → update (Aₘ ∷ Ψ) Aₘ Aₘ (Aₘ ∷ Ψ)
-
-    weaken-++R : (Ψ₁ ++ []) ⊢ᵃ Aₘ → (Ψ₁ ++ Ψ₂) ⊢ᵃ Aₘ
-
-  {- Now, some lemmas -}
-
-  -- The merge operation on modes is reflexive.
-  ∙-id : k ∙ k ⇒ k
-  ∙-id {mValid} = v∙v
-  ∙-id {mTrue} = t∙t
-  ∙-id {mIrrelevant} = i∙i
-
-  -- The merge operation on contexts is reflexive.
-  merge-id : merge Ψ Ψ Ψ
-  merge-id {Ψ = []} = merge/z
-  merge-id {Ψ = x ∷ Ψ} = merge/s merge-id ∙-id
-
-  -- A fully truth context can merge with a fully irrelevant context
-  merge-irrel : Only-mTrue Ψ → merge (irrelify Ψ) Ψ Ψ
-  merge-irrel onlyt/z = merge/z
-  merge-irrel (onlyt/s ot) = merge/s (merge-irrel ot) i∙t
-
-  {- A context consisting of only valid things is weakenable -}
-  valid-weakenable : Only-mValid Ψ → cWeakenable Ψ
-  valid-weakenable onlyv/z = weak/z
-  valid-weakenable (onlyv/s ov) = weak/s (valid-weakenable ov) weak/valid
-
-  {- Similar lemma to above, but for irrelevant contexts -}
-  irrel-weakenable : Only-mIrrelevant Ψ → cWeakenable Ψ
-  irrel-weakenable onlyi/z = weak/z
-  irrel-weakenable (onlyi/s oi) = weak/s (irrel-weakenable oi) weak/irr
-
-  {- Similar to lemma above, but for truth contexts -}
-  true-weakenable : Only-mTrue Ψ → cWeakenable Ψ
-  true-weakenable onlyt/z = weak/z
-  true-weakenable (onlyt/s ot) = weak/s (true-weakenable ot) weak/true
-
-  -- Implication lemma for S4-embedded Adjoint logic
-  gen-⊸ : Ψ ⊢ᵃ (Aₐ , mTrue) → Ψ ⊢ᵃ (Aₐ ⊸ Bₐ , mTrue) → Ψ ⊢ᵃ (Bₐ , mTrue)
-  gen-⊸ D1 D2 = {!   !}
-
-  {-
-   Theorems we want to prove. We want to show that our S4 instantiation of Adjoint Logic
-   is equivalent to the original S4. That is, we can prove something in one system iff
-   we can prove it in the other. There are two iff statements to prove.
-  -}
-
-  -- First, the more general one. 
-  -- (=>) If we can prove S4 with an arbitrary Δ and Γ, then
-  -- we can prove the equivalent in adjoint logic.
-  embed-S4-1-if : ∀ { Δ : HypContext n Validity } { Γ : HypContext m Truth }
-    → (Δ , Γ) ⊢ˢ (Aₛ , true)
-    → ↑-ctxt (τ Validity Δ) Ψ₁
-    → (Ψ₁ ++ (τ Truth Γ)) ⊢ᵃ (translS4-TProp (Aₛ , true)) 
-
-  -- (<=) If we can prove a statement in adjoint logic,
-  -- then we can prove the equivalent in S4.
-  embed-S4-1-oif : ∀ { Δ : HypContext n Validity } { Γ : HypContext m Truth }
-    → (Ψ₁ ++ (τ Truth Γ)) ⊢ᵃ (translS4-TProp (Aₛ , true)) 
-    → ↑-ctxt (τ Validity Δ) Ψ₁
-    → (Δ , Γ) ⊢ˢ (Aₛ , true)
-
-  embed-S4-1-if {Ψ₁ = Ψ₁} {Γ = Γ} (hyp) up-ctxt 
-    = exch-Ψ-2 
-        (id { k = mTrue } 
-            update-id (weak/s (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ refl)) weak/true) 
-          harml/true)
-  embed-S4-1-if (⊃I D) up-ctxt = ⊸R (exch-Ψ-1 (embed-S4-1-if D up-ctxt))
-  embed-S4-1-if { Ψ₁ = Ψ₁ } { Γ = Γ } (⊃E D D₁) up-ctxt = gen-⊸ (embed-S4-1-if D₁ up-ctxt) (embed-S4-1-if D up-ctxt)
-  embed-S4-1-if { Γ = Γ } hyp* (↑/ctxt/s {Ψ' = Ψ'} up-ctxt ↑/prop/z) 
-    = ↑L consume/yes v≥t 
-      (id { k = mTrue } update/z (weak/s (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ { t = Truth } { Δ = Γ } refl)) weak/true) harml/true)
-  embed-S4-1-if { Ψ₁ = Ψ₁ } { Γ = Γ } (■I D) up-ctxt 
-    = ↓R M (mValid-bot (Ψ₁-valid) irrel-irrel) (weaken-concat (valid-weakenable Ψ₁-valid) (true-weakenable trans-true)) 
-      (↑R (weaken-++R (embed-S4-1-if D up-ctxt))) 
-    where
-      tΓ = τ Truth Γ
-      IΓ = map (λ x → proj₁ x , mIrrelevant) tΓ
-
-      M1 : merge Ψ₁ Ψ₁ Ψ₁
-      M1 = merge-id
-
-      M2 : merge IΓ tΓ tΓ
-      M2  = merge-irrel trans-true
-
-      M : merge (Ψ₁ ++ IΓ) (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ)
-      M = merge-concat M1 M2
-
-      ≥ᶜ-lem-1 : Only-mValid Ψ → Ψ ≥ᶜ mValid
-      ≥ᶜ-lem-1 onlyv/z = ≥/z
-      ≥ᶜ-lem-1 (onlyv/s ov) = ≥/s (≥ᶜ-lem-1 ov) m≥m
-
-      ≥ᶜ-lem-2 : Only-mIrrelevant Ψ → Ψ ≥ᶜ mValid
-      ≥ᶜ-lem-2 onlyi/z = ≥/z
-      ≥ᶜ-lem-2 (onlyi/s oi) = ≥/s (≥ᶜ-lem-2 oi) i≥v
-
-      mValid-bot : ∀ { Ψ₁ : AdjointContext n } { Ψ₂ : AdjointContext m } → Only-mValid Ψ₁ → Only-mIrrelevant Ψ₂ → (Ψ₁ ++ Ψ₂) ≥ᶜ mValid
-      mValid-bot ov oi = ≥ᶜ-concat (≥ᶜ-lem-1 ov) (≥ᶜ-lem-2 oi)
-
-      Ψ₁-valid : Only-mValid Ψ₁
-      Ψ₁-valid = trans-valid up-ctxt
-
-      IΓ-irrel : Only-mIrrelevant IΓ
-      IΓ-irrel = irrel-irrel
-      
-  embed-S4-1-if { Ψ₁ = Ψ₁ } { Γ = Γ } (■E D D₁) up-ctxt 
-    = cut merge-id merge-id merge-id mTrue-bot mTrue-bot m≥m (contr-concat (contr-transl-up-Ψ up-ctxt) (contr-transl-Ψ refl)) 
-      (embed-S4-1-if D up-ctxt) 
-      (↓L consume/yes (embed-S4-1-if D₁ (↑/ctxt/s up-ctxt ↑/prop/z)))
-    where
-      tΓ = τ Truth Γ  
-  
-  embed-S4-1-oif D1 up-ctxt = {! D1  !}
-
-  embed-S4-2 : ∀ { Δ : HypContext (suc n) Validity }
-    → (Δ , ([] , onlyt/z)) ⊢ˢ (Aₛ , true)
-    → ↑-ctxt (τ Validity Δ) Ψ
-    → ↑-prop (translS4-TProp (Aₛ , true)) Aₘ
-    → Ψ ⊢ᵃ Aₘ
-  embed-S4-2 D up-ctxt up-prop = {!   !}
  
-                           
+                            
