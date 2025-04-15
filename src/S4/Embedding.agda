@@ -205,7 +205,7 @@ module S4.Embedding where
     mTrue-bot : Ψ ≥ᶜ mTrue
 
     -- I can do no-op updates to contexts.
-    update-id : ∀ { Ψ : AdjointContext (suc n) } → update (Aₘ ∷ Ψ) Aₘ Aₘ (Aₘ ∷ Ψ)
+    update-id : ∀ { Ψ : AdjointContext n } → update (Aₘ ∷ Ψ) Aₘ Aₘ (Aₘ ∷ Ψ)
 
     weaken-++R : (Ψ₁ ++ []) ⊢ᵃ Aₘ → (Ψ₁ ++ Ψ₂) ⊢ᵃ Aₘ
 
@@ -246,24 +246,40 @@ module S4.Embedding where
   gen-⊸ : Ψ ⊢ᵃ (Aₐ , mTrue) → Ψ ⊢ᵃ (Aₐ ⊸ Bₐ , mTrue) → Ψ ⊢ᵃ (Bₐ , mTrue)
   gen-⊸ D1 D2 = {!   !}
 
-  embed-S4-1 : ∀ { Δ : HypContext (suc n) Validity } { Γ : HypContext m Truth }
+  {-
+   Theorems we want to prove. We want to show that our S4 instantiation of Adjoint Logic
+   is equivalent to the original S4. That is, we can prove something in one system iff
+   we can prove it in the other. There are two iff statements to prove.
+  -}
+
+  -- First, the more general one. 
+  -- (=>) If we can prove S4 with an arbitrary Δ and Γ, then
+  -- we can prove the equivalent in adjoint logic.
+  embed-S4-1-if : ∀ { Δ : HypContext n Validity } { Γ : HypContext m Truth }
     → (Δ , Γ) ⊢ˢ (Aₛ , true)
     → ↑-ctxt (τ Validity Δ) Ψ₁
     → (Ψ₁ ++ (τ Truth Γ)) ⊢ᵃ (translS4-TProp (Aₛ , true)) 
 
-  embed-S4-1 {Ψ₁ = Ψ₁} {Γ = Γ} (hyp) up-ctxt 
+  -- (<=) If we can prove a statement in adjoint logic,
+  -- then we can prove the equivalent in S4.
+  embed-S4-1-oif : ∀ { Δ : HypContext n Validity } { Γ : HypContext m Truth }
+    → (Ψ₁ ++ (τ Truth Γ)) ⊢ᵃ (translS4-TProp (Aₛ , true)) 
+    → ↑-ctxt (τ Validity Δ) Ψ₁
+    → (Δ , Γ) ⊢ˢ (Aₛ , true)
+
+  embed-S4-1-if {Ψ₁ = Ψ₁} {Γ = Γ} (hyp) up-ctxt 
     = exch-Ψ-2 
         (id { k = mTrue } 
             update-id (weak/s (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ refl)) weak/true) 
           harml/true)
-  embed-S4-1 (⊃I D) up-ctxt = ⊸R (exch-Ψ-1 (embed-S4-1 D up-ctxt))
-  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (⊃E D D₁) up-ctxt = gen-⊸ (embed-S4-1 D₁ up-ctxt) (embed-S4-1 D up-ctxt)
-  embed-S4-1 { Γ = Γ } hyp* (↑/ctxt/s {Ψ' = Ψ'} up-ctxt ↑/prop/z) 
+  embed-S4-1-if (⊃I D) up-ctxt = ⊸R (exch-Ψ-1 (embed-S4-1-if D up-ctxt))
+  embed-S4-1-if { Ψ₁ = Ψ₁ } { Γ = Γ } (⊃E D D₁) up-ctxt = gen-⊸ (embed-S4-1-if D₁ up-ctxt) (embed-S4-1-if D up-ctxt)
+  embed-S4-1-if { Γ = Γ } hyp* (↑/ctxt/s {Ψ' = Ψ'} up-ctxt ↑/prop/z) 
     = ↑L consume/yes v≥t 
       (id { k = mTrue } update/z (weak/s (weaken-concat (weaken-transl-up-Ψ up-ctxt) (weaken-transl-Ψ { t = Truth } { Δ = Γ } refl)) weak/true) harml/true)
-  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (■I D) up-ctxt 
+  embed-S4-1-if { Ψ₁ = Ψ₁ } { Γ = Γ } (■I D) up-ctxt 
     = ↓R M (mValid-bot (Ψ₁-valid) irrel-irrel) (weaken-concat (valid-weakenable Ψ₁-valid) (true-weakenable trans-true)) 
-      (↑R (weaken-++R (embed-S4-1 D up-ctxt))) 
+      (↑R (weaken-++R (embed-S4-1-if D up-ctxt))) 
     where
       tΓ = τ Truth Γ
       IΓ = map (λ x → proj₁ x , mIrrelevant) tΓ
@@ -285,7 +301,7 @@ module S4.Embedding where
       ≥ᶜ-lem-2 onlyi/z = ≥/z
       ≥ᶜ-lem-2 (onlyi/s oi) = ≥/s (≥ᶜ-lem-2 oi) i≥v
 
-      mValid-bot : ∀ { Ψ₁ : AdjointContext (suc n) } { Ψ₂ : AdjointContext m } → Only-mValid Ψ₁ → Only-mIrrelevant Ψ₂ → (Ψ₁ ++ Ψ₂) ≥ᶜ mValid
+      mValid-bot : ∀ { Ψ₁ : AdjointContext n } { Ψ₂ : AdjointContext m } → Only-mValid Ψ₁ → Only-mIrrelevant Ψ₂ → (Ψ₁ ++ Ψ₂) ≥ᶜ mValid
       mValid-bot ov oi = ≥ᶜ-concat (≥ᶜ-lem-1 ov) (≥ᶜ-lem-2 oi)
 
       Ψ₁-valid : Only-mValid Ψ₁
@@ -294,17 +310,15 @@ module S4.Embedding where
       IΓ-irrel : Only-mIrrelevant IΓ
       IΓ-irrel = irrel-irrel
       
-  embed-S4-1 { Ψ₁ = Ψ₁ } { Γ = Γ } (■E D D₁) up-ctxt 
-    = cut M M M mTrue-bot mTrue-bot m≥m (contr-concat (contr-transl-up-Ψ up-ctxt) (contr-transl-Ψ refl)) 
-      (embed-S4-1 D up-ctxt) 
-      (↓L consume/yes (embed-S4-1 D₁ (↑/ctxt/s up-ctxt ↑/prop/z)))
+  embed-S4-1-if { Ψ₁ = Ψ₁ } { Γ = Γ } (■E D D₁) up-ctxt 
+    = cut merge-id merge-id merge-id mTrue-bot mTrue-bot m≥m (contr-concat (contr-transl-up-Ψ up-ctxt) (contr-transl-Ψ refl)) 
+      (embed-S4-1-if D up-ctxt) 
+      (↓L consume/yes (embed-S4-1-if D₁ (↑/ctxt/s up-ctxt ↑/prop/z)))
     where
-      tΓ = τ Truth Γ
-      postulate 
-        -- This should be fairly obvious. I can merge mTrue with mTrue according to
-        -- the definition of _∙_⇒_ above, and all of my context is mTrue.
-        M : merge (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ) (Ψ₁ ++ tΓ)
+      tΓ = τ Truth Γ  
   
+  embed-S4-1-oif D1 up-ctxt = {! D1  !}
+
   embed-S4-2 : ∀ { Δ : HypContext (suc n) Validity }
     → (Δ , ([] , onlyt/z)) ⊢ˢ (Aₛ , true)
     → ↑-ctxt (τ Validity Δ) Ψ
