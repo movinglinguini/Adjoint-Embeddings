@@ -99,29 +99,7 @@ module S4.Lemmas where
 
   {- Lemma: Implication lemma for S4-embedded Adjoint Logic. -}
   gen-⊸ : Ψ ⊢ᵃ (Aₐ , mTrue) → Ψ ⊢ᵃ (Aₐ ⊸ Bₐ , mTrue) → Ψ ⊢ᵃ (Bₐ , mTrue)
-  gen-⊸ (id x x₁ x₂) D2 
-    = cut merge-id merge-id merge-id mTrue-bot mTrue-bot m≥m Ψ-contractable  
-      D2
-      (⊸L merge-id merge-id merge-id consume/yes consume/yes (≥/s mTrue-bot m≥m) (≥/s mTrue-bot m≥m) (cont/s Ψ-contractable contr/true) 
-        (id (update/s x) (weak/s Ψ-weakenable weak/true) x₂) 
-        (id update-id (weak/s (weak/s Ψ-weakenable weak/true) weak/true) harml/true))
-  gen-⊸ (cut x x₁ x₂ x₃ x₄ x₅ x₆ D1 D3) D2 = {!   !}
-  gen-⊸ (⊕R₁ D1) D2 = {!   !}
-  gen-⊸ (⊕R₂ D1) D2 = {!   !}
-  gen-⊸ (⊕L x D1 D3) D2 = {!   !}
-  gen-⊸ (&R D1 D3) D2 = {!   !}
-  gen-⊸ (&L₁ x D1) D2 = {!   !}
-  gen-⊸ (&L₂ x D1) D2 = {!   !}
-  gen-⊸ (⊗R x x₁ x₂ x₃ D1 D3) D2 = {!   !}
-  gen-⊸ (⊗L x D1) D2 = {!   !}
-  gen-⊸ (⊸R D1) D2 = {!   !}
-  gen-⊸ (⊸L x x₁ x₂ x₃ x₄ x₅ x₆ x₇ D1 D3) D2 = {!   !}
-  gen-⊸ (𝟙R x) D2 = {!   !}
-  gen-⊸ (𝟙L x D1) D2 = {!   !}
-  gen-⊸ (↓R x x₁ x₂ D1) D2 = {!   !}
-  gen-⊸ (↓L x D1) D2 = {!   !}
-  gen-⊸ (↑R D1) D2 = {!   !}
-  gen-⊸ (↑L x x₁ D1) D2 = {!   !} 
+  gen-⊸ D1 D2 = {!   !}
 
   {- Lemma: If I have truth context membership in S4, then I have the capacity to update in Adjoint Logic -}
   ∈⇒update-Γ : (to/truth (Aₛ , true) prop/true) ∈ʰ Γ → update (τ Truth Γ) (translS4-TProp (Aₛ , true)) (translS4-TProp (Aₛ , true)) (τ Truth Γ)
@@ -138,21 +116,22 @@ module S4.Lemmas where
   {- Lemma: If I have a validity context membership in S4, then I have the capacity to update in Adjoint Logic -}
   ∈⇒update-Δ : (to/validity (Aₛ , valid) prop/valid) ∈ʰ Δ 
     → ↑-ctxt (τ Validity Δ) Ψ
-    → update Ψ (↑[ mValid ][ mTrue ](propToProp Aₛ) , mValid) (↑[ mValid ][ mTrue ](propToProp Aₛ) , mValid) Ψ
+    → update Ψ (↑[ mTrue ][ mValid ](propToProp Aₛ) , mValid) (↑[ mTrue ][ mValid ](propToProp Aₛ) , mValid) Ψ
   ∈⇒update-Δ {Δ = .((_ , valid) ∷ _) , onlyv/s snd x} (here refl) (↑/ctxt/s up-ctxt ↑/prop/z) = update-id
   ∈⇒update-Δ {Δ = .(_ ∷ _) , onlyv/s snd x} (there mem) (↑/ctxt/s up-ctxt x₁) = update/s (∈⇒update-Δ mem up-ctxt)
 
   {- Extends the above lemma to work with appending the validity context with an arbitrary context-}
   ∈⇒update-Δ++ : (to/validity (Aₛ , valid) prop/valid) ∈ʰ Δ 
     → ↑-ctxt (τ Validity Δ) Ψ₁
-    → update (Ψ₁ ++ Ψ₂) (↑[ mValid ][ mTrue ](propToProp Aₛ) , mValid) (↑[ mValid ][ mTrue ](propToProp Aₛ) , mValid) (Ψ₁ ++ Ψ₂)
+    → update (Ψ₁ ++ Ψ₂) (↑[ mTrue ][ mValid ](propToProp Aₛ) , mValid) (↑[ mTrue ][ mValid ](propToProp Aₛ) , mValid) (Ψ₁ ++ Ψ₂)
   ∈⇒update-Δ++ {Δ = .((_ , valid) ∷ _) , onlyv/s snd x} (here refl) (↑/ctxt/s up-ctxt ↑/prop/z) = update-id
   ∈⇒update-Δ++ {Δ = .(_ ∷ _) , onlyv/s snd x} (there mem) (↑/ctxt/s up-ctxt ↑/prop/z) = update/s (∈⇒update-Δ++ mem up-ctxt)
 
   {- If I have an upshifted truth hyp in my context, then I can prove the truth hyp. -}
   update-↑valid⇒update-true : 
-    update Ψ (↑[ mValid ][ mTrue ](Aₐ) , mValid) (↑[ mValid ][ mTrue ](Aₐ) , mValid) Ψ
+    update Ψ (↑[ mTrue ][ mValid ](Aₐ) , mValid) (↑[ mTrue ][ mValid ](Aₐ) , mValid) Ψ
     → Ψ ⊢ᵃ (Aₐ , mTrue)
-  update-↑valid⇒update-true update/z = ↑L consume/yes v≥t (id update-id (weak/s Ψ-weakenable weak/true) harml/true)
+  update-↑valid⇒update-true update/z = ↑L consume/yes m≥m (id update-id (weak/s Ψ-weakenable weak/true) harml/true)
   update-↑valid⇒update-true (update/s U) = weaken (update-↑valid⇒update-true U)
+
   

@@ -110,7 +110,7 @@ module S4.Embedding where
   -- We define ↑-ifying a truth proposition. We simply
   -- apply an upshift to it.
   data ↑-prop : Prop × Mode → Prop × Mode → Set where
-    ↑/prop/z : ↑-prop (Aₐ , mTrue) (↑[ mValid ][ mTrue ] Aₐ , mValid)
+    ↑/prop/z : ↑-prop (Aₐ , mTrue) (↑[ mTrue ][ mValid ] Aₐ , mValid)
 
   -- Second, we distribute ↑ across a context.
   data ↑-ctxt : AdjointContext n → AdjointContext n → Set where
@@ -137,9 +137,9 @@ module S4.Embedding where
   propToProp : Proposition → Prop
   propToProp (` x) = ` x
   propToProp (A ⊃ B) = (propToProp A) ⊸ (propToProp B)
-  propToProp (■ A) = ↓[ mTrue ][ mValid ](↑[ mValid ][ mTrue ] (propToProp A))
-  propToProp (A ∧ B) = (propToProp A) ⊗ (propToProp B)
-  propToProp (A ∨ B) = (propToProp A) ⊕ (propToProp B)
+  propToProp (■ A) = ↓[ mTrue ][ mValid ](↑[ mTrue ][ mValid ] (propToProp A))
+  -- propToProp (A ∧ B) = (propToProp A) ⊗ (propToProp B)
+  -- propToProp (A ∨ B) = (propToProp A) & (propToProp B)
 
   -- Translating tagged propositions. Note that all propositions
   -- translate to an adjoint propositon with the mode for truth.
