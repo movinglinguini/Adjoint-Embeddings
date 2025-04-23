@@ -56,8 +56,6 @@ module S4.Embedding where
   -- This comes up whenever we need to "consume" our modes, such as
   -- when we use the id rule or split a context.
   data mHarmless : Mode → Set where
-    harml/valid : mHarmless mValid
-    harml/true : mHarmless mTrue
     harml/irr : mHarmless mIrrelevant
 
   -- Finally, the binary operation on modes
@@ -70,7 +68,7 @@ module S4.Embedding where
 
   -- Now, we can initialize Adjoint Logic
   open import Adjoint.Logic 
-    PropAtom Mode mWeakenable mContractable mHarmless _∙_⇒_ _≥_ 
+    PropAtom Mode mWeakenable mContractable mHarmless _∙_⇒_ _≥_ mIrrelevant
     renaming (_⊢_ to _⊢ᵃ_; Context to AdjointContext) public
 
   variable
@@ -83,7 +81,7 @@ module S4.Embedding where
     t : ContextType
     k : Mode
     Aₕ Bₕ : Proposition × Hypothesis
-    Aₘ Aₘ' Bₘ : Prop × Mode
+    Aₘ Aₘ' Bₘ Cₘ : Prop × Mode
 
   {- Some helper relations -}
   data Only-mTrue : AdjointContext n → Set where
@@ -99,13 +97,6 @@ module S4.Embedding where
     onlyv/s :
       Only-mValid Ψ
       → Only-mValid ((Aₐ , mValid) ∷ Ψ)
-
-  data Only-mIrrelevant : AdjointContext n → Set where
-    onlyi/z : Only-mIrrelevant []
-
-    onlyi/s :
-      Only-mIrrelevant Ψ
-      → Only-mIrrelevant ((Aₐ , mIrrelevant) ∷ Ψ)
 
   -- We define ↑-ifying a truth proposition. We simply
   -- apply an upshift to it.
@@ -126,9 +117,9 @@ module S4.Embedding where
   irrelify Ψ = map (λ x → (proj₁ x) , mIrrelevant) Ψ
 
   -- A context that has been irrelified is only full of irrelevant modes
-  irrel-irrel : Only-mIrrelevant (irrelify Ψ)
-  irrel-irrel {Ψ = []} = onlyi/z
-  irrel-irrel {Ψ = x ∷ Ψ} = onlyi/s irrel-irrel
+  irrel-irrel : cIrrelevant (irrelify Ψ)
+  irrel-irrel {Ψ = []} = irr/z
+  irrel-irrel {Ψ = x ∷ Ψ} = irr/s irrel-irrel
   
   {-
     Okay, so from here, we want to think about comparing S4 to ADJ.

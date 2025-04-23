@@ -13,6 +13,9 @@ module S4.Lemmas where
     exch-Ψ-1 : (Ψ₁ ++ (Aₘ ∷ Ψ₂)) ⊢ᵃ Bₘ → (Aₘ ∷ Ψ₁ ++ Ψ₂) ⊢ᵃ Bₘ
     exch-Ψ-2 : (Aₘ ∷ Ψ₁ ++ Ψ₂) ⊢ᵃ Bₘ → (Ψ₁ ++ (Aₘ ∷ Ψ₂)) ⊢ᵃ Bₘ
 
+    exch₀ : (Aₘ ∷ Bₘ ∷ Ψ) ⊢ᵃ Cₘ → (Bₘ ∷ Aₘ ∷ Ψ) ⊢ᵃ Cₘ
+    contract : Ψ ⊢ᵃ Aₘ → (Bₘ ∷ Ψ) ⊢ᵃ Aₘ
+
     -- If I concat two weakenable contexts, the result is weakenable
     weaken-concat : 
       cWeakenable Ψ₁    →   cWeakenable Ψ₂
@@ -57,9 +60,13 @@ module S4.Lemmas where
   valid-weakenable (onlyv/s ov) = weak/s (valid-weakenable ov) weak/valid
 
   {- Similar lemma to above, but for irrelevant contexts -}
-  irrel-weakenable : Only-mIrrelevant Ψ → cWeakenable Ψ
-  irrel-weakenable onlyi/z = weak/z
-  irrel-weakenable (onlyi/s oi) = weak/s (irrel-weakenable oi) weak/irr
+  irrel-weakenable : cIrrelevant Ψ → cWeakenable Ψ
+  irrel-weakenable irr/z = weak/z
+  irrel-weakenable (irr/s oi) = weak/s (irrel-weakenable oi) weak/irr
+
+  irrel-exhausted : cIrrelevant Ψ → cExhausted Ψ
+  irrel-exhausted irr/z = exh/z
+  irrel-exhausted (irr/s i) = exh/s (irrel-exhausted i) harml/irr
 
   {- Similar to lemma above, but for truth contexts -}
   true-weakenable : Only-mTrue Ψ → cWeakenable Ψ
@@ -131,7 +138,42 @@ module S4.Lemmas where
   update-↑valid⇒update-true : 
     update Ψ (↑[ mTrue ][ mValid ](Aₐ) , mValid) (↑[ mTrue ][ mValid ](Aₐ) , mValid) Ψ
     → Ψ ⊢ᵃ (Aₐ , mTrue)
-  update-↑valid⇒update-true update/z = ↑L consume/yes m≥m (id update-id (weak/s Ψ-weakenable weak/true) harml/true)
+  update-↑valid⇒update-true update/z = ↑L (consume/no update-id) m≥m (id update-id (weak/s Ψ-weakenable weak/true))
   update-↑valid⇒update-true (update/s U) = weaken (update-↑valid⇒update-true U)
 
+  -- Update to vec membership
+  update⇒∈ : ∀ { Ψ₁ Ψ Ψ' } 
+    → ↑-ctxt (τ Validity Δ) Ψ₁
+    → Ψ ≡ (Ψ₁ ++ (τ Truth Γ))
+    → update Ψ (translS4-TProp (Aₛ , true)) (propToProp Aₛ , k) Ψ' 
+    → (to/truth (Aₛ , true) prop/true) ∈ʰ Γ
+
+  update⇒∈ {Δ = [] , onlyv/z} {Γ = .(_ , true) ∷ fst , onlyt/s snd₁ prop/true} ↑/ctxt/z eq update/z = here (lem-3 eq)
+    where
+      lem-1 : ∀ { A : Set } { x y : A } { xs ys : Vec A n } → (x ∷ xs) ≡ (y ∷ ys) → (x ≡ y) × (xs ≡ ys)
+      lem-1 refl = refl , refl
+
+      lem-2 : ∀ { A B } → (propToProp A) ≡ (propToProp B) → A ≡ B
+      lem-2 {` x} {` x₁} refl = refl
+      lem-2 {A ⊃ A₁} {B ⊃ B₁} eq = cong {!   !} eq
+      lem-2 {■ A} {■ B} eq = {!   !}
+
+      lem-3 : ∀ { A B } { As Bs : AdjointContext n } → ((propToProp A , mTrue) ∷ As) ≡ ((propToProp B , mTrue) ∷ Bs) → (A , true) ≡ (B , true)
+      lem-3 eq with lem-1 eq
+      lem-3 {A = ` x} {` .x} refl | fst , refl = refl
+      lem-3 {A = A ⊃ A₁} {B ⊃ B₁} eq | fst , refl = {!   !}
+      lem-3 {A = ■ A} {■ B} eq | fst , refl = {!  !}
+      
+  update⇒∈ {Δ = [] , onlyv/z} up-ctxt eq (update/s U) = {!   !}
+  update⇒∈ {Δ = x ∷ fst , snd} up-ctxt eq U = {!   !}
+
+  -- Consumption to vec membership
+  consume⇒∈ : ∀ { Ψ₁ Ψ Ψ' } 
+    → ↑-ctxt (τ Validity Δ) Ψ₁
+    → Ψ ≡ (Ψ₁ ++ (τ Truth Γ))
+    → mayConsume Ψ (translS4-TProp (Aₛ , true)) Ψ' 
+    → (to/truth (Aₛ , true) prop/true) ∈ʰ Γ
+  
+  consume⇒∈ up-ctxt eq (consume/yes x) = update⇒∈ up-ctxt eq x
+  consume⇒∈ up-ctxt eq (consume/no x) = update⇒∈ up-ctxt eq x
   
